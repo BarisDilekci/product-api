@@ -16,6 +16,7 @@ type IProductRepository interface {
 	GetAllProductsByStore(storeName string) []domain.Product
 	AddProduct(product domain.Product) error
 	GetById(productId int64) (domain.Product, error)
+	DeleteById(productId int64) error
 }
 
 type ProductRepository struct {
@@ -93,6 +94,22 @@ func (productRepository *ProductRepository) GetById(productId int64) (domain.Pro
 		Discount: discount,
 		Store:    store,
 	}, nil
+}
+func (ProductRepository *ProductRepository) DeleteById(productId int64) error {
+	ctx := context.Background()
+
+	deleteSql := `Delete from products where id = $1`
+	_, getError := ProductRepository.GetById(productId)
+
+	if getError != nil {
+		return errors.New(fmt.Sprintf("Error while getting product with id %d", productId))
+	}
+	_, err := ProductRepository.dbPool.Exec(ctx, deleteSql, productId)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error while deleting product with id %d", productId))
+	}
+	log.Info("Product deleted with id %d", productId)
+	return nil
 }
 
 func extractProductFromRows(productRows pgx.Rows) []domain.Product {
