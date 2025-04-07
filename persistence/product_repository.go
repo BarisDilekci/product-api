@@ -2,17 +2,20 @@ package persistence
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/gommon/log"
 	"product-app/domain"
+	"product-app/persistence/common"
 )
 
 type IProductRepository interface {
 	GettAllProducts() []domain.Product
 	GetAllProductsByStore(storeName string) []domain.Product
 	AddProduct(product domain.Product) error
+	GetById(productId int64) (domain.Product, error)
 }
 
 type ProductRepository struct {
@@ -36,7 +39,6 @@ func (productRepository *ProductRepository) GettAllProducts() []domain.Product {
 
 	return extractProductFromRows(productRows)
 }
-
 func (productRepository *ProductRepository) GetAllProductsByStore(storeName string) []domain.Product {
 	ctx := context.Background()
 
@@ -62,6 +64,35 @@ func (productRepository *ProductRepository) AddProduct(product domain.Product) e
 	}
 	log.Info(fmt.Printf("Product added with %v", addNewProduct))
 	return nil
+}
+func (productRepository *ProductRepository) GetById(productId int64) (domain.Product, error) {
+	ctx := context.Background()
+
+	getByIdSql := `Select * from products where id = $1`
+	queryRow := productRepository.dbPool.QueryRow(ctx, getByIdSql, productId)
+
+	var id int64
+	var name string
+	var price float32
+	var discount float32
+	var store string
+
+	scanErr := queryRow.Scan(&id, &name, &price, &discount, &store)
+
+	if scanErr != nil && scanErr.Error() == common.NOT_FOUND {
+		return domain.Product{}, errors.New(fmt.Sprintf("Product not found with id %d", productId))
+	}
+	if scanErr != nil {
+		return domain.Product{}, errors.New(fmt.Sprintf("Error while getting product with id %d", productId))
+	}
+
+	return domain.Product{
+		Id:       id,
+		Name:     name,
+		Price:    price,
+		Discount: discount,
+		Store:    store,
+	}, nil
 }
 
 func extractProductFromRows(productRows pgx.Rows) []domain.Product {
