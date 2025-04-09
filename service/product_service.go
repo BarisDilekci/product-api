@@ -5,6 +5,7 @@ import (
 	"product-app/domain"
 	"product-app/persistence"
 	"product-app/service/model"
+	"regexp"
 )
 
 type IProductService interface {
@@ -55,17 +56,33 @@ func (productService *ProductService) GetAllProductsByStore(storeName string) []
 }
 
 func validateProductCreate(productCreate model.ProductCreate) error {
-	if productCreate.Name == "" {
-		return errors.New("product name is required")
+	if err := validateNameWithRegex(productCreate.Name, "product name is required"); err != nil {
+		return err
 	}
+
 	if productCreate.Price <= 0 {
-		return errors.New("product price is required")
+		return errors.New("product price must be greater than zero")
 	}
-	if productCreate.Store == "" {
-		return errors.New("product store is required")
+
+	if err := validateNameWithRegex(productCreate.Store, "store name is required"); err != nil {
+		return err
 	}
-	if productCreate.Discount < 0 || productCreate.Discount > 70 {
-		return errors.New("Discount must be between 0 and 70 percent")
+
+	if productCreate.Discount < 0 || productCreate.Discount > 100 {
+		return errors.New("discount must be between 0 and 100 percent")
+	}
+
+	return nil
+}
+
+func validateNameWithRegex(name string, errorMessage string) error {
+	if name == "" {
+		return errors.New(errorMessage)
+	}
+
+	regex := regexp.MustCompile(`[^a-zA-Z0-9\s]+`)
+	if regex.MatchString(name) {
+		return errors.New("contains invalid characters")
 	}
 	return nil
 }
