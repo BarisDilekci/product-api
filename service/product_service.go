@@ -51,6 +51,7 @@ func (productService *ProductService) UpdatePrice(productId int64, newPrice floa
 func (productService *ProductService) GetAllProducts() []domain.Product {
 	return productService.productRepository.GettAllProducts()
 }
+
 func (productService *ProductService) GetAllProductsByStore(storeName string) []domain.Product {
 	return productService.productRepository.GetAllProductsByStore(storeName)
 }
@@ -68,8 +69,8 @@ func validateProductCreate(productCreate model.ProductCreate) error {
 		return err
 	}
 
-	if productCreate.Discount < 0 || productCreate.Discount > 100 {
-		return errors.New("discount must be between 0 and 100 percent")
+	if productCreate.Discount < 0 || productCreate.Discount > 70 {
+		return errors.New("discount must be between 0 and 70 percent")
 	}
 
 	return nil
@@ -80,9 +81,9 @@ func validateNameWithRegex(name string, errorMessage string) error {
 		return errors.New(errorMessage)
 	}
 
-	regex := regexp.MustCompile(`[^a-zA-Z0-9\s]+`)
-	if regex.MatchString(name) {
-		return errors.New("contains invalid characters")
+	regex := regexp.MustCompile(`^[\p{L}\p{N}\s]+$`) // Sadece alfanümerik ve boşluğa izin verir
+	if !regex.MatchString(name) {
+		return errors.New("contains invalid characters (only alphanumeric and space allowed)")
 	}
 	return nil
 }
