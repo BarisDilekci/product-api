@@ -74,8 +74,33 @@ func (productController *ProductController) AddProduct(c echo.Context) error {
 }
 
 func (productController *ProductController) UpdatePrice(c echo.Context) error {
-	return nil
+	param := c.Param("id")
+	productId, _ := strconv.Atoi(param)
+
+	newPrice := c.QueryParam("newPrice")
+	if len(newPrice) == 0 {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse{
+			ErrorDescription: "Parameter newPrice is required!",
+		})
+	}
+	convertedPrice, err := strconv.ParseFloat(newPrice, 32)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse{
+			ErrorDescription: "NewPrice Format Disrupted!",
+		})
+	}
+	productController.productService.UpdatePrice(int64(productId), float32(convertedPrice))
+	return c.NoContent(http.StatusOK)
 }
+
 func (productController *ProductController) DeleteProductById(c echo.Context) error {
-	return nil
+	param := c.Param("id")
+	productId, _ := strconv.Atoi(param)
+	err := productController.productService.DeleteById(int64(productId))
+	if err != nil {
+		return c.JSON(http.StatusNotFound, response.ErrorResponse{
+			ErrorDescription: err.Error(),
+		})
+	}
+	return c.NoContent(http.StatusOK)
 }

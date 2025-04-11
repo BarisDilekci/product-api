@@ -118,14 +118,14 @@ func (productRepository *ProductRepository) UpdatePrice(productId int64, newPric
 
 	updateSql := `Update products set price = $1 where id = $2`
 
-	_, err := productRepository.dbPool.Exec(ctx, updateSql, productId, newPrice)
+	_, err := productRepository.dbPool.Exec(ctx, updateSql, newPrice, productId)
+
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error while updating product with id %d", productId))
+		return errors.New(fmt.Sprintf("Error while updating product with id : %d", productId))
 	}
 	log.Info("Product %d price updated with new price %v", productId, newPrice)
 	return nil
 }
-
 func extractProductFromRows(productRows pgx.Rows) []domain.Product {
 	var products = []domain.Product{}
 	var id int64
