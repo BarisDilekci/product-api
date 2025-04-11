@@ -6,6 +6,7 @@ import (
 	"product-app/controller/request"
 	"product-app/controller/response"
 	"product-app/service"
+	"strconv"
 )
 
 type ProductController struct {
@@ -25,7 +26,22 @@ func (productController *ProductController) RegisterRoutes(e *echo.Echo) {
 }
 
 func (productController *ProductController) GetProductById(c echo.Context) error {
-	return nil
+	param := c.Param("id")
+	productId, err := strconv.Atoi(param)
+
+	if err != nil || productId <= 0 {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse{
+			ErrorDescription: "Error: " + err.Error(),
+		})
+	}
+
+	product, err := productController.productService.GetById(int64(productId))
+	if err != nil {
+		return c.JSON(http.StatusNotFound, response.ErrorResponse{
+			ErrorDescription: "Error:  " + err.Error(),
+		})
+	}
+	return c.JSON(http.StatusOK, response.ToResponse(product))
 }
 
 func (productController *ProductController) GetAllProducts(c echo.Context) error {
