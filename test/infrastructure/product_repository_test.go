@@ -148,15 +148,20 @@ func TestGetProductById(t *testing.T) {
 	setup(ctx, dbPool)
 	t.Run("GetProductById", func(t *testing.T) {
 		actualProduct, _ := productRepository.GetById(1)
-		_, err := productRepository.GetById(5)
-		assert.Equal(t, domain.Product{
+
+		expectedProduct := domain.Product{
 			Id:       1,
 			Name:     "AirFryer",
 			Price:    3000.0,
 			Discount: 22.0,
 			Store:    "ABC TECH",
-		}, actualProduct)
-		assert.Equal(t, "Product not found with id 5", err.Error())
+		}
+
+		assert.Equal(t, expectedProduct, actualProduct)
+
+		_, err := productRepository.GetById(5)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "product not found with id 5")
 	})
 	clear(ctx, dbPool)
 }
@@ -166,7 +171,8 @@ func TestDeleteById(t *testing.T) {
 	t.Run("DeleteById", func(t *testing.T) {
 		productRepository.DeleteById(1)
 		_, err := productRepository.GetById(1)
-		assert.Equal(t, "Product not found with id 1", err.Error())
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "product not found with id 1")
 	})
 	clear(ctx, dbPool)
 }
