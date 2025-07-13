@@ -32,10 +32,11 @@ func (productService *ProductService) Add(productCreate model.ProductCreate) err
 		return validateError
 	}
 	return productService.productRepository.AddProduct(domain.Product{
-		Name:     productCreate.Name,
-		Price:    productCreate.Price,
-		Discount: productCreate.Discount,
-		Store:    productCreate.Store,
+		Name:      productCreate.Name,
+		Price:     productCreate.Price,
+		Discount:  productCreate.Discount,
+		Store:     productCreate.Store,
+		ImageUrls: productCreate.ImageUrls,
 	})
 }
 

@@ -7,18 +7,20 @@ type ErrorResponse struct {
 }
 
 type ProductResponse struct {
-	Name     string  `json:"name"`
-	Price    float32 `json:"price"`
-	Discount float32 `json:"discount"`
-	Store    string  `json:"store"`
+	Name      string   `json:"name"`
+	Price     float32  `json:"price"`
+	Discount  float32  `json:"discount"`
+	Store     string   `json:"store"`
+	ImageUrls []string `json:"image_urls"`
 }
 
 func ToResponse(product domain.Product) ProductResponse {
 	return ProductResponse{
-		Name:     product.Name,
-		Price:    product.Price,
-		Discount: product.Discount,
-		Store:    product.Store,
+		Name:      product.Name,
+		Price:     product.Price,
+		Discount:  product.Discount,
+		Store:     product.Store,
+		ImageUrls: product.ImageUrls,
 	}
 }
 func ToResponseList(products []domain.Product) []ProductResponse {

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"product-app/domain"
+
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/gommon/log"
-	"product-app/domain"
 )
 
 type IProductRepository interface {
@@ -39,8 +40,7 @@ func (productRepository *ProductRepository) GettAllProducts() []domain.Product {
 	}
 
 	defer productRows.Close()
-
-	products, err := extractProductFromRows(productRows)
+	products, err := productRepository.extractProductFromRows(ctx, productRows)
 
 	if err != nil {
 		log.Errorf("Error while extracting products from rows: %v", err)
@@ -52,38 +52,95 @@ func (productRepository *ProductRepository) GettAllProducts() []domain.Product {
 func (productRepository *ProductRepository) GetAllProductsByStore(storeName string) []domain.Product {
 	ctx := context.Background()
 
-	getProductByStoreNameSql := `Select * from products where store = $1`
-	productRows, err := productRepository.dbPool.Query(ctx, getProductByStoreNameSql, storeName)
+	getProductByStoreNameSql := `
+		SELECT id, name, price, discount, store
+		FROM products
+		WHERE store = $1
+	`
 
+	productRows, err := productRepository.dbPool.Query(ctx, getProductByStoreNameSql, storeName)
 	if err != nil {
-		log.Error("Error while getting all products %v", err)
+		log.Errorf("❌ Error while querying products: %v", err)
 		return []domain.Product{}
 	}
 	defer productRows.Close()
-	products, err := extractProductFromRows(productRows)
 
-	if err != nil {
-		log.Errorf("Error while extracting products from rows: %v", err)
-		return []domain.Product{}
+	var products []domain.Product
+
+	for productRows.Next() {
+		var p domain.Product
+		err := productRows.Scan(&p.Id, &p.Name, &p.Price, &p.Discount, &p.Store)
+		if err != nil {
+			log.Errorf("❌ Error while scanning product: %v", err)
+			continue
+		}
+
+		// Görselleri çek
+		imageRows, err := productRepository.dbPool.Query(ctx, `
+			SELECT image_urls FROM product_images
+			WHERE product_id = $1
+			ORDER BY display_order
+		`, p.Id)
+		if err != nil {
+			log.Errorf("❌ Error while querying images: %v", err)
+			continue
+		}
+
+		var imageUrls []string
+		for imageRows.Next() {
+			var url string
+			if err := imageRows.Scan(&url); err != nil {
+				log.Errorf("❌ Failed to scan image url: %v", err)
+				continue
+			}
+			imageUrls = append(imageUrls, url)
+		}
+		imageRows.Close()
+
+		p.ImageUrls = imageUrls
+		products = append(products, p)
 	}
+
 	return products
 }
+
 func (productRepository *ProductRepository) AddProduct(product domain.Product) error {
 	ctx := context.Background()
-	insert_sql := `Insert into products (name,price,discount,store) VALUES ($1,$2,$3,$4)`
 
-	addNewProduct, err := productRepository.dbPool.Exec(ctx, insert_sql, product.Name, product.Price, product.Discount, product.Store)
+	// Ürünü products tablosuna ekle ve ID'yi al
+	insertProductSQL := `
+		INSERT INTO products (name, price, discount, store)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id;
+	`
+
+	var productId int64
+	err := productRepository.dbPool.QueryRow(ctx, insertProductSQL,
+		product.Name, product.Price, product.Discount, product.Store).Scan(&productId)
 
 	if err != nil {
-		log.Printf("ERROR: Error while adding product '%s': %v", product.Name, err)
-		return fmt.Errorf("failed to add product '%s': %w", product.Name, err)
+		log.Printf("❌ Error inserting product: %v", err)
+		return fmt.Errorf("failed to insert product: %w", err)
 	}
 
-	if addNewProduct.RowsAffected() == 0 {
-		log.Printf("WARNING: Product '%s' already exists", product.Name)
+	log.Printf("✅ Product inserted with ID: %d", productId)
+
+	// image_urls'leri product_images tablosuna ekle
+	insertImageSQL := `
+		INSERT INTO product_images (product_id, image_urls, is_main_image, display_order)
+		VALUES ($1, $2, $3, $4);
+	`
+
+	for i, url := range product.ImageUrls {
+		isMain := (i == 0)
+		_, err := productRepository.dbPool.Exec(ctx, insertImageSQL, productId, url, isMain, i)
+		if err != nil {
+			log.Printf("❌ Error inserting image: %v", err)
+			return fmt.Errorf("failed to insert image: %w", err)
+		}
 	}
 
-	log.Info(fmt.Printf("Product added with %v", addNewProduct))
+	log.Printf("✅ Product and images added successfully")
 	return nil
 }
 
@@ -140,25 +197,44 @@ func (productRepository *ProductRepository) UpdatePrice(productId int64, newPric
 	log.Info("Product %d price updated with new price %v", productId, newPrice)
 	return nil
 }
-func extractProductFromRows(productRows pgx.Rows) ([]domain.Product, error) {
-	var products = []domain.Product{}
-	var id int64
-	var name string
-	var price float32
-	var discount float32
-	var store string
+func (productRepository *ProductRepository) extractProductFromRows(ctx context.Context, productRows pgx.Rows) ([]domain.Product, error) {
+	var products []domain.Product
 
 	for productRows.Next() {
-		err := productRows.Scan(&id, &name, &price, &discount, &store)
+		var p domain.Product
+		err := productRows.Scan(&p.Id, &p.Name, &p.Price, &p.Discount, &p.Store)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning product row: %w", err)
 		}
-		products = append(products, domain.Product{Id: id, Name: name, Price: price, Discount: discount, Store: store})
+
+		// Görselleri çek
+		imageRows, err := productRepository.dbPool.Query(ctx, `
+			SELECT image_urls FROM product_images
+			WHERE product_id = $1
+			ORDER BY display_order
+		`, p.Id)
+		if err != nil {
+			return nil, fmt.Errorf("error querying images for product %d: %w", p.Id, err)
+		}
+
+		var imageUrls []string
+		for imageRows.Next() {
+			var url string
+			if err := imageRows.Scan(&url); err != nil {
+				imageRows.Close()
+				return nil, fmt.Errorf("error scanning image url: %w", err)
+			}
+			imageUrls = append(imageUrls, url)
+		}
+		imageRows.Close()
+
+		p.ImageUrls = imageUrls
+		products = append(products, p)
 	}
+
 	if err := productRows.Err(); err != nil {
 		return nil, fmt.Errorf("error during row iteration: %w", err)
 	}
 
 	return products, nil
-
 }
