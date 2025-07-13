@@ -3,13 +3,15 @@ package infrastructure
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/stretchr/testify/assert"
+	"github.com/labstack/gommon/log"
 	"os"
 	"product-app/common/postgresql"
 	"product-app/domain"
 	"product-app/persistence"
 	"testing"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stretchr/testify/assert"
 )
 
 var productRepository persistence.IProductRepository
@@ -22,12 +24,13 @@ func TestMain(m *testing.M) {
 	dbPool = postgresql.GetConnectionPool(ctx, postgresql.Config{
 		Host:                  "localhost",
 		Port:                  "6432",
-		DbName:                "productapp",
+		DbName:                "productapp_unit_test",
 		UserName:              "postgres",
 		Password:              "postgres",
 		MaxConnections:        "10",
 		MaxConnectionIdleTime: "30s",
 	})
+
 	productRepository = persistence.NewProductRepository(dbPool)
 	fmt.Println("Before all tests")
 	exitCode := m.Run()
@@ -36,44 +39,25 @@ func TestMain(m *testing.M) {
 }
 
 func setup(ctx context.Context, dbPool *pgxpool.Pool) {
+	clear(ctx, dbPool)
 	TestDataInitialize(ctx, dbPool)
 }
+
 func clear(ctx context.Context, dbPool *pgxpool.Pool) {
-	TruncateTestData(ctx, dbPool)
+	_, err := dbPool.Exec(ctx, "TRUNCATE product_images, products RESTART IDENTITY CASCADE;")
+	if err != nil {
+		log.Printf("Error truncating tables: %v", err)
+	}
 }
 
 func TestGetAllProducts(t *testing.T) {
 	setup(ctx, dbPool)
 
 	expectedProducts := []domain.Product{
-		{
-			Id:       1,
-			Name:     "AirFryer",
-			Price:    3000.0,
-			Discount: 22.0,
-			Store:    "ABC TECH",
-		},
-		{
-			Id:       2,
-			Name:     "Ütü",
-			Price:    1500.0,
-			Discount: 10.0,
-			Store:    "ABC TECH",
-		},
-		{
-			Id:       3,
-			Name:     "Çamaşır Makinesi",
-			Price:    10000.0,
-			Discount: 15.0,
-			Store:    "ABC TECH",
-		},
-		{
-			Id:       4,
-			Name:     "Lambader",
-			Price:    2000.0,
-			Discount: 0.0,
-			Store:    "Dekorasyon Sarayı",
-		},
+		{Id: 1, Name: "AirFryer", Price: 3000, Discount: 22, Store: "ABC TECH"},
+		{Id: 2, Name: "Ütü", Price: 1500, Discount: 10, Store: "ABC TECH"},
+		{Id: 3, Name: "Çamaşır Makinesi", Price: 10000, Discount: 15, Store: "ABC TECH"},
+		{Id: 4, Name: "Lambader", Price: 2000, Discount: 0, Store: "Dekorasyon Sarayı"},
 	}
 	t.Run("GetAllProducts", func(t *testing.T) {
 		actualProducts := productRepository.GettAllProducts()
@@ -88,32 +72,16 @@ func TestGetAllProductsByStore(t *testing.T) {
 	setup(ctx, dbPool)
 
 	expectedProducts := []domain.Product{
-		{
-			Id:       1,
-			Name:     "AirFryer",
-			Price:    3000.0,
-			Discount: 22.0,
-			Store:    "ABC TECH",
-		},
-		{
-			Id:       2,
-			Name:     "Ütü",
-			Price:    1500.0,
-			Discount: 10.0,
-			Store:    "ABC TECH",
-		},
-		{
-			Id:       3,
-			Name:     "Çamaşır Makinesi",
-			Price:    10000.0,
-			Discount: 15.0,
-			Store:    "ABC TECH",
-		},
+		{Id: 1, Name: "AirFryer", Price: 3000, Discount: 22, Store: "ABC TECH"},
+		{Id: 2, Name: "Ütü", Price: 1500, Discount: 10, Store: "ABC TECH"},
+		{Id: 3, Name: "Çamaşır Makinesi", Price: 10000, Discount: 15, Store: "ABC TECH"},
 	}
+
 	t.Run("GetAllProductsByStore", func(t *testing.T) {
 		actualProducts := productRepository.GetAllProductsByStore("ABC TECH")
-		assert.Equal(t, 3, len(actualProducts))
-		assert.Equal(t, expectedProducts, actualProducts)
+
+		assert.Equal(t, len(expectedProducts), len(actualProducts), "Ürün sayısı eşleşmeli")
+		assert.Equal(t, expectedProducts, actualProducts, "Ürünler eşleşmeli")
 	})
 
 	clear(ctx, dbPool)
@@ -130,10 +98,11 @@ func TestAddProduct(t *testing.T) {
 		},
 	}*/
 	newProduct := domain.Product{
-		Name:     "Kupa",
-		Price:    100.0,
-		Discount: 0.0,
-		Store:    "Kırtasiye Merkezi",
+		Name:      "Kupa",
+		Price:     100.0,
+		Discount:  0.0,
+		Store:     "Kırtasiye Merkezi",
+		ImageUrls: []string{"https://example.com/iphone16-front.jpg"},
 	}
 	t.Run("AddProduct", func(t *testing.T) {
 		productRepository.AddProduct(newProduct)

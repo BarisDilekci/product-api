@@ -82,7 +82,7 @@ func validateNameWithRegex(name string, errorMessage string) error {
 		return errors.New(errorMessage)
 	}
 
-	regex := regexp.MustCompile(`^[\p{L}\p{N}\s]+$`) // Sadece alfanümerik ve boşluğa izin verir
+	regex := regexp.MustCompile(`^[\p{L}\p{N}\s]+$`)
 	if !regex.MatchString(name) {
 		return errors.New("contains invalid characters (only alphanumeric and space allowed)")
 	}

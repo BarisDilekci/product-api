@@ -107,7 +107,6 @@ func (productRepository *ProductRepository) GetAllProductsByStore(storeName stri
 func (productRepository *ProductRepository) AddProduct(product domain.Product) error {
 	ctx := context.Background()
 
-	// Ürünü products tablosuna ekle ve ID'yi al
 	insertProductSQL := `
 		INSERT INTO products (name, price, discount, store)
 		VALUES ($1, $2, $3, $4)
@@ -125,7 +124,6 @@ func (productRepository *ProductRepository) AddProduct(product domain.Product) e
 
 	log.Printf("✅ Product inserted with ID: %d", productId)
 
-	// image_urls'leri product_images tablosuna ekle
 	insertImageSQL := `
 		INSERT INTO product_images (product_id, image_urls, is_main_image, display_order)
 		VALUES ($1, $2, $3, $4);
