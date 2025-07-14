@@ -157,3 +157,17 @@ func TestUpdatePrice(t *testing.T) {
 	})
 	clear(ctx, dbPool)
 }
+
+func TestDeleteAllProducts(t *testing.T) {
+	setup(ctx, dbPool)
+
+	t.Run("DeleteAllProducts", func(t *testing.T) {
+		err := productRepository.DeleteAllProducts()
+		assert.NoError(t, err)
+
+		products := productRepository.GettAllProducts()
+		assert.Len(t, products, 0, "Delete all Products")
+	})
+
+	clear(ctx, dbPool)
+}
