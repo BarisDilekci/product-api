@@ -15,6 +15,7 @@ type IProductService interface {
 	UpdatePrice(productId int64, newPrice float32) error
 	GetAllProducts() []domain.Product
 	GetAllProductsByStore(storeName string) []domain.Product
+	DeleteAllProducts() error
 }
 
 type ProductService struct {
@@ -55,6 +56,10 @@ func (productService *ProductService) GetAllProducts() []domain.Product {
 
 func (productService *ProductService) GetAllProductsByStore(storeName string) []domain.Product {
 	return productService.productRepository.GetAllProductsByStore(storeName)
+}
+
+func (productService *ProductService) DeleteAllProducts() error {
+	return productService.productRepository.DeleteAllProducts()
 }
 
 func validateProductCreate(productCreate model.ProductCreate) error {

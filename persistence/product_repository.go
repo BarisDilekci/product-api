@@ -18,6 +18,7 @@ type IProductRepository interface {
 	GetById(productId int64) (domain.Product, error)
 	DeleteById(productId int64) error
 	UpdatePrice(productId int64, newPrice float32) error
+	DeleteAllProducts() error
 }
 
 type ProductRepository struct {
@@ -179,6 +180,25 @@ func (ProductRepository *ProductRepository) DeleteById(productId int64) error {
 	}
 
 	log.Printf("INFO: Product deleted with id %d", productId)
+	return nil
+}
+
+func (ProductRepository *ProductRepository) DeleteAllProducts() error {
+	ctx := context.Background()
+	deleteAllProductsSql := `Delete from products`
+	commandTag, err := ProductRepository.dbPool.Exec(ctx, deleteAllProductsSql)
+
+	if err != nil {
+		log.Printf("ERROR: Error while deleting all products: %v", err)
+		return fmt.Errorf("error while deleting all products: %w", err)
+	}
+
+	if commandTag.RowsAffected() == 0 {
+		log.Printf("WARNING: Products not found for deletion")
+		return fmt.Errorf("products not found for deletion")
+	}
+
+	log.Printf("INFO: Products deleted successfully")
 	return nil
 }
 
