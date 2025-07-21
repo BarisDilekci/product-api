@@ -11,6 +11,23 @@ type FakeProductRepository struct {
 	products []domain.Product
 }
 
+// DeleteAllProducts implements persistence.IProductRepository.
+func (fakeRepository *FakeProductRepository) DeleteAllProducts() error {
+	fakeRepository.products = []domain.Product{}
+	return nil
+}
+
+// GetAllProductsByUser implements persistence.IProductRepository.
+func (fakeRepository *FakeProductRepository) GetAllProductsByUser(userId int64) []domain.Product {
+	var productsByUser []domain.Product
+	for _, product := range fakeRepository.products {
+		if product.UserID == userId {
+			productsByUser = append(productsByUser, product)
+		}
+	}
+	return productsByUser
+}
+
 func NewFakeProductRepository(initialProducts []domain.Product) persistence.IProductRepository {
 	return &FakeProductRepository{
 		products: initialProducts,
@@ -32,11 +49,15 @@ func (fakeRepository *FakeProductRepository) GetAllProductsByStore(storeName str
 
 func (fakeRepository *FakeProductRepository) AddProduct(product domain.Product) error {
 	fakeRepository.products = append(fakeRepository.products, domain.Product{
-		Id:       int64(len(fakeRepository.products)) + 1,
-		Name:     product.Name,
-		Price:    product.Price,
-		Discount: product.Discount,
-		Store:    product.Store,
+		Id:          int64(len(fakeRepository.products)) + 1,
+		Name:        product.Name,
+		Price:       product.Price,
+		Description: product.Description,
+		Discount:    product.Discount,
+		Store:       product.Store,
+		ImageUrls:   product.ImageUrls,
+		CategoryID:  product.CategoryID,
+		UserID:      product.UserID,
 	})
 	return nil
 }

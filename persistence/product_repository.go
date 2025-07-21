@@ -14,6 +14,7 @@ import (
 type IProductRepository interface {
 	GettAllProducts() []domain.Product
 	GetAllProductsByStore(storeName string) []domain.Product
+	GetAllProductsByUser(userId int64) []domain.Product
 	AddProduct(product domain.Product) error
 	GetById(productId int64) (domain.Product, error)
 	DeleteById(productId int64) error
@@ -54,7 +55,7 @@ func (productRepository *ProductRepository) GetAllProductsByStore(storeName stri
 	ctx := context.Background()
 
 	getProductByStoreNameSql := `
-		SELECT id, name, price, discount, store
+		SELECT id, name, price, description, discount, store, category_id, user_id
 		FROM products
 		WHERE store = $1
 	`
@@ -70,7 +71,7 @@ func (productRepository *ProductRepository) GetAllProductsByStore(storeName stri
 
 	for productRows.Next() {
 		var p domain.Product
-		err := productRows.Scan(&p.Id, &p.Name, &p.Price, &p.Discount, &p.Store)
+		err := productRows.Scan(&p.Id, &p.Name, &p.Price, &p.Description, &p.Discount, &p.Store, &p.CategoryID, &p.UserID)
 		if err != nil {
 			log.Errorf("❌ Error while scanning product: %v", err)
 			continue
@@ -105,18 +106,73 @@ func (productRepository *ProductRepository) GetAllProductsByStore(storeName stri
 	return products
 }
 
+func (productRepository *ProductRepository) GetAllProductsByUser(userId int64) []domain.Product {
+	ctx := context.Background()
+
+	getProductByUserSql := `
+		SELECT id, name, price, description, discount, store, category_id, user_id
+		FROM products
+		WHERE user_id = $1
+	`
+
+	productRows, err := productRepository.dbPool.Query(ctx, getProductByUserSql, userId)
+	if err != nil {
+		log.Errorf("❌ Error while querying products by user: %v", err)
+		return []domain.Product{}
+	}
+	defer productRows.Close()
+
+	var products []domain.Product
+
+	for productRows.Next() {
+		var p domain.Product
+		err := productRows.Scan(&p.Id, &p.Name, &p.Price, &p.Description, &p.Discount, &p.Store, &p.CategoryID, &p.UserID)
+		if err != nil {
+			log.Errorf("❌ Error while scanning product: %v", err)
+			continue
+		}
+
+		// Get images
+		imageRows, err := productRepository.dbPool.Query(ctx, `
+			SELECT image_urls FROM product_images
+			WHERE product_id = $1
+			ORDER BY display_order
+		`, p.Id)
+		if err != nil {
+			log.Errorf("❌ Error while querying images: %v", err)
+			continue
+		}
+
+		var imageUrls []string
+		for imageRows.Next() {
+			var url string
+			if err := imageRows.Scan(&url); err != nil {
+				log.Errorf("❌ Failed to scan image url: %v", err)
+				continue
+			}
+			imageUrls = append(imageUrls, url)
+		}
+		imageRows.Close()
+
+		p.ImageUrls = imageUrls
+		products = append(products, p)
+	}
+
+	return products
+}
+
 func (productRepository *ProductRepository) AddProduct(product domain.Product) error {
 	ctx := context.Background()
 
 	insertProductSQL := `
-		INSERT INTO products (name, price, description , discount, store)
-		VALUES ($1, $2, $3, $4,$5)
+		INSERT INTO products (name, price, description, discount, store, category_id, user_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id;
 	`
 
 	var productId int64
 	err := productRepository.dbPool.QueryRow(ctx, insertProductSQL,
-		product.Name, product.Price, product.Description, product.Discount, product.Store).Scan(&productId)
+		product.Name, product.Price, product.Description, product.Discount, product.Store, product.CategoryID, product.UserID).Scan(&productId)
 
 	if err != nil {
 		log.Printf("❌ Error inserting product: %v", err)
@@ -150,7 +206,7 @@ func (productRepository *ProductRepository) GetById(productId int64) (domain.Pro
 	queryRow := productRepository.dbPool.QueryRow(ctx, getByIdSql, productId)
 
 	var product domain.Product
-	scanErr := queryRow.Scan(&product.Id, &product.Name, &product.Price, &product.Description, &product.Discount, &product.Store)
+	scanErr := queryRow.Scan(&product.Id, &product.Name, &product.Price, &product.Description, &product.Discount, &product.Store, &product.CategoryID, &product.UserID)
 
 	if errors.Is(scanErr, pgx.ErrNoRows) {
 		return domain.Product{}, fmt.Errorf("product not found with id %d: %w", productId, scanErr)
@@ -220,7 +276,7 @@ func (productRepository *ProductRepository) extractProductFromRows(ctx context.C
 
 	for productRows.Next() {
 		var p domain.Product
-		err := productRows.Scan(&p.Id, &p.Name, &p.Price, &p.Description, &p.Discount, &p.Store)
+		err := productRows.Scan(&p.Id, &p.Name, &p.Price, &p.Description, &p.Discount, &p.Store, &p.CategoryID, &p.UserID)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning product row: %w", err)
 		}

@@ -19,8 +19,8 @@ func TestMain(m *testing.M) {
 func Test_ShouldGetAllProducts(t *testing.T) {
 	t.Run("ShouldGetAllProducts", func(t *testing.T) {
 		initialProducts := []domain.Product{
-			{Id: 1, Name: "AirFryer", Price: 1000.0, Store: "ABC TECH"},
-			{Id: 2, Name: "Ütü", Price: 4000.0, Store: "ABC TECH"},
+			{Id: 1, Name: "AirFryer", Price: 1000.0, Store: "ABC TECH", UserID: 1, CategoryID: 1},
+			{Id: 2, Name: "Ütü", Price: 4000.0, Store: "ABC TECH", UserID: 1, CategoryID: 1},
 		}
 		fakeRepo := NewFakeProductRepository(initialProducts)
 		productService := service.NewProductService(fakeRepo)
@@ -36,11 +36,12 @@ func Test_WhenNoValidationErrorOccurred_ShouldAddProduct(t *testing.T) {
 		productService := service.NewProductService(fakeRepo)
 
 		err := productService.Add(model.ProductCreate{
-			Name:     "Ütü",
-			Price:    2000.0,
-			Discount: 50,
-			Store:    "ABC TECH",
-		})
+			Name:       "Ütü",
+			Price:      2000.0,
+			Discount:   50,
+			Store:      "ABC TECH",
+			CategoryID: 1,
+		}, 1) // userId parameter added
 
 		assert.NoError(t, err, "Add metodu hata döndürdü")
 
@@ -56,11 +57,12 @@ func Test_WhenDiscountIsHigherThan70_ShouldNotAddProduct(t *testing.T) {
 		productService := service.NewProductService(fakeRepo)
 
 		err := productService.Add(model.ProductCreate{
-			Name:     "Ütü",
-			Price:    2000.0,
-			Discount: 75,
-			Store:    "ABC TECH",
-		})
+			Name:       "Ütü",
+			Price:      2000.0,
+			Discount:   75,
+			Store:      "ABC TECH",
+			CategoryID: 1,
+		}, 1) // userId parameter added
 
 		actualProducts := productService.GetAllProducts()
 		assert.Equal(t, 0, len(actualProducts))
@@ -72,8 +74,8 @@ func Test_WhenDiscountIsHigherThan70_ShouldNotAddProduct(t *testing.T) {
 
 func Test_FakeProductRepository_GetById(t *testing.T) {
 	initialProducts := []domain.Product{
-		{Id: 1, Name: "Product A", Price: 10.0, Store: "Store X"},
-		{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y"},
+		{Id: 1, Name: "Product A", Price: 10.0, Store: "Store X", UserID: 1, CategoryID: 1},
+		{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y", UserID: 1, CategoryID: 1},
 	}
 	fakeRepo := NewFakeProductRepository(initialProducts)
 
@@ -94,9 +96,9 @@ func Test_FakeProductRepository_GetById(t *testing.T) {
 func Test_FakeProductRepository_DeleteById(t *testing.T) {
 	t.Run("Should delete product by ID if found", func(t *testing.T) {
 		initialProducts := []domain.Product{
-			{Id: 1, Name: "Product A", Price: 10.0, Store: "Store X"},
-			{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y"},
-			{Id: 3, Name: "Product C", Price: 30.0, Store: "Store X"},
+			{Id: 1, Name: "Product A", Price: 10.0, Store: "Store X", UserID: 1, CategoryID: 1},
+			{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y", UserID: 1, CategoryID: 1},
+			{Id: 3, Name: "Product C", Price: 30.0, Store: "Store X", UserID: 1, CategoryID: 1},
 		}
 		fakeRepo := NewFakeProductRepository(initialProducts)
 
@@ -104,14 +106,14 @@ func Test_FakeProductRepository_DeleteById(t *testing.T) {
 		assert.NoError(t, err)
 		products := fakeRepo.GettAllProducts()
 		assert.Len(t, products, 2)
-		assert.NotContains(t, products, domain.Product{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y"})
+		assert.NotContains(t, products, domain.Product{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y", UserID: 1, CategoryID: 1})
 	})
 
 	t.Run("Should return error if product not found", func(t *testing.T) {
 		initialProducts := []domain.Product{
-			{Id: 1, Name: "Product A", Price: 10.0, Store: "Store X"},
-			{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y"},
-			{Id: 3, Name: "Product C", Price: 30.0, Store: "Store X"},
+			{Id: 1, Name: "Product A", Price: 10.0, Store: "Store X", UserID: 1, CategoryID: 1},
+			{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y", UserID: 1, CategoryID: 1},
+			{Id: 3, Name: "Product C", Price: 30.0, Store: "Store X", UserID: 1, CategoryID: 1},
 		}
 		fakeRepo := NewFakeProductRepository(initialProducts)
 
@@ -125,8 +127,8 @@ func Test_FakeProductRepository_DeleteById(t *testing.T) {
 
 func Test_FakeProductRepository_UpdatePrice(t *testing.T) {
 	initialProducts := []domain.Product{
-		{Id: 1, Name: "Product A", Price: 10.0, Store: "Store X"},
-		{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y"},
+		{Id: 1, Name: "Product A", Price: 10.0, Store: "Store X", UserID: 1, CategoryID: 1},
+		{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y", UserID: 1, CategoryID: 1},
 	}
 	fakeRepo := NewFakeProductRepository(initialProducts)
 
@@ -147,5 +149,27 @@ func Test_FakeProductRepository_UpdatePrice(t *testing.T) {
 		product, err := fakeRepo.GetById(1)
 		assert.NoError(t, err)
 		assert.Equal(t, float32(10.0), product.Price)
+	})
+}
+
+// Yeni test: GetAllProductsByUser fonksiyonu için
+func Test_FakeProductRepository_GetAllProductsByUser(t *testing.T) {
+	initialProducts := []domain.Product{
+		{Id: 1, Name: "Product A", Price: 10.0, Store: "Store X", UserID: 1, CategoryID: 1},
+		{Id: 2, Name: "Product B", Price: 20.0, Store: "Store Y", UserID: 2, CategoryID: 1},
+		{Id: 3, Name: "Product C", Price: 30.0, Store: "Store X", UserID: 1, CategoryID: 2},
+	}
+	fakeRepo := NewFakeProductRepository(initialProducts)
+
+	t.Run("Should return products for specific user", func(t *testing.T) {
+		products := fakeRepo.GetAllProductsByUser(1)
+		assert.Len(t, products, 2)
+		assert.Equal(t, int64(1), products[0].UserID)
+		assert.Equal(t, int64(1), products[1].UserID)
+	})
+
+	t.Run("Should return empty slice for user with no products", func(t *testing.T) {
+		products := fakeRepo.GetAllProductsByUser(999)
+		assert.Len(t, products, 0)
 	})
 }

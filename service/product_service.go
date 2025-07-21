@@ -9,12 +9,13 @@ import (
 )
 
 type IProductService interface {
-	Add(productCreate model.ProductCreate) error
+	Add(productCreate model.ProductCreate, userId int64) error
 	DeleteById(productId int64) error
 	GetById(productId int64) (domain.Product, error)
 	UpdatePrice(productId int64, newPrice float32) error
 	GetAllProducts() []domain.Product
 	GetAllProductsByStore(storeName string) []domain.Product
+	GetAllProductsByUser(userId int64) []domain.Product
 	DeleteAllProducts() error
 }
 
@@ -27,7 +28,7 @@ func NewProductService(productRepository persistence.IProductRepository) IProduc
 		productRepository: productRepository,
 	}
 }
-func (productService *ProductService) Add(productCreate model.ProductCreate) error {
+func (productService *ProductService) Add(productCreate model.ProductCreate, userId int64) error {
 	validateError := validateProductCreate(productCreate)
 	if validateError != nil {
 		return validateError
@@ -39,6 +40,8 @@ func (productService *ProductService) Add(productCreate model.ProductCreate) err
 		Discount:    productCreate.Discount,
 		Store:       productCreate.Store,
 		ImageUrls:   productCreate.ImageUrls,
+		CategoryID:  productCreate.CategoryID,
+		UserID:      userId,
 	})
 }
 
@@ -57,6 +60,10 @@ func (productService *ProductService) GetAllProducts() []domain.Product {
 
 func (productService *ProductService) GetAllProductsByStore(storeName string) []domain.Product {
 	return productService.productRepository.GetAllProductsByStore(storeName)
+}
+
+func (productService *ProductService) GetAllProductsByUser(userId int64) []domain.Product {
+	return productService.productRepository.GetAllProductsByUser(userId)
 }
 
 func (productService *ProductService) DeleteAllProducts() error {
