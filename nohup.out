@@ -1,0 +1,19 @@
+{"time":"2025-07-21T16:15:40.716784+03:00","level":"ERROR","prefix":"-","file":"connection.go","line":"27","message":"Unable to connect to database: %v\nfailed to connect to `host=localhost user=postgres database=productapp`: dial error (dial tcp 127.0.0.1:6432: connect: connection refused)"}
+panic: failed to connect to `host=localhost user=postgres database=productapp`: dial error (dial tcp 127.0.0.1:6432: connect: connection refused)
+
+goroutine 1 [running]:
+product-app/common/postgresql.GetConnectionPool({0x1013d4480, 0x1016d7560}, {{0x1012674f4, 0x9}, {0x101265a2d, 0x4}, {0x101266d74, 0x8}, {0x101266d74, 0x8}, ...})
+	/Users/barisdilekci/Desktop/product-api/common/postgresql/connection.go:28 +0x1f0
+main.main()
+	/Users/barisdilekci/Desktop/product-api/main.go:18 +0xd0
+exit status 2
+
+   ____    __
+  / __/___/ /  ___
+ / _// __/ _ \/ _ \
+/___/\__/_//_/\___/ v4.13.3
+High performance, minimalist Go web framework
+https://echo.labstack.com
+____________________________________O/_______
+                                    O\
+⇨ http server started on 127.0.0.1:8080
