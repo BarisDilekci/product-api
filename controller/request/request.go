@@ -9,6 +9,7 @@ type AddProductRequest struct {
 	Discount    float32  `json:"discount"`
 	Store       string   `json:"store"`
 	ImageUrls   []string `json:"image_urls"`
+	CategoryID  int64    `json:"category_id"`
 }
 
 func (addProductRequest AddProductRequest) ToModel() model.ProductCreate {
@@ -19,5 +20,6 @@ func (addProductRequest AddProductRequest) ToModel() model.ProductCreate {
 		Discount:    addProductRequest.Discount,
 		Store:       addProductRequest.Store,
 		ImageUrls:   addProductRequest.ImageUrls,
+		CategoryID:  addProductRequest.CategoryID,
 	}
 }

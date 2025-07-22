@@ -1,14 +1,15 @@
 package controller
 
 import (
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 	"net/http"
 	"product-app/controller/request"
 	"product-app/controller/response"
 	"product-app/middleware"
 	"product-app/service"
 	"strconv"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 )
 
 // ProductController handles HTTP requests for product operations
@@ -20,6 +21,7 @@ type ProductController struct {
 // NewProductController creates a new instance of ProductController
 // Parameters:
 //   - productService: Service interface for product business logic
+//
 // Returns:
 //   - *ProductController: New controller instance
 func NewProductController(productService service.IProductService) *ProductController {
@@ -30,6 +32,7 @@ func NewProductController(productService service.IProductService) *ProductContro
 // Public routes (no authentication):
 //   - GET /api/v1/products/:id - Get single product by ID
 //   - GET /api/v1/products - Get all products (with optional store filter)
+//
 // Protected routes (JWT required):
 //   - POST /api/v1/products - Create new product
 //   - PUT /api/v1/products/:id - Update product price
@@ -43,19 +46,18 @@ func (productController *ProductController) RegisterRoutes(e *echo.Echo) {
 	// Public routes (no authentication required)
 	e.GET("/api/v1/products/:id", productController.GetProductById)
 	e.GET("/api/v1/products", productController.GetAllProducts)
-	
+	e.POST("/api/v1/products", productController.AddProduct)
+
 	// Protected routes (authentication required)
 	protected := e.Group("/api/v1/products", middleware.JWTMiddleware())
-	protected.POST("", productController.AddProduct)
 	protected.PUT("/:id", productController.UpdatePrice)
 	protected.DELETE("/:id", productController.DeleteProductById)
 	protected.DELETE("/deleteAll", productController.DeleteAllProducts)
-	protected.GET("/my-products", productController.GetMyProducts)
 }
 
 // GetProductById retrieves a single product by its ID
 // This is a public endpoint - no authentication required
-// 
+//
 // URL Parameters:
 //   - id: Product ID (integer, must be positive)
 //
@@ -92,8 +94,8 @@ func (productController *ProductController) GetProductById(c echo.Context) error
 //
 // Returns:
 //   - 200 OK: Array of products
-//     - If no store parameter: Returns all products from all stores
-//     - If store parameter provided: Returns only products from that store
+//   - If no store parameter: Returns all products from all stores
+//   - If store parameter provided: Returns only products from that store
 //
 // Examples:
 //   - GET /api/v1/products - Get all products
@@ -131,15 +133,6 @@ func (productController *ProductController) GetAllProducts(c echo.Context) error
 // Authorization: Bearer <jwt_token>
 // Body: {"name":"iPhone","price":1000,"store":"TechStore","category_id":1}
 func (productController *ProductController) AddProduct(c echo.Context) error {
-	// Get authenticated user ID from JWT token
-	userIdInterface := c.Get("user_id")
-	userId, ok := userIdInterface.(int64)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, response.ErrorResponse{
-			ErrorDescription: "Invalid user authentication",
-		})
-	}
-
 	var addProductRequest request.AddProductRequest
 	bindErr := c.Bind(&addProductRequest)
 	if bindErr != nil {
@@ -147,8 +140,8 @@ func (productController *ProductController) AddProduct(c echo.Context) error {
 			ErrorDescription: bindErr.Error(),
 		})
 	}
-	
-	err := productController.productService.Add(addProductRequest.ToModel(), userId)
+	err := productController.productService.Add(addProductRequest.ToModel())
+
 	if err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse{
 			ErrorDescription: err.Error(),
@@ -258,16 +251,3 @@ func (productController *ProductController) DeleteAllProducts(c echo.Context) er
 //
 // Example: GET /api/v1/products/my-products
 // Authorization: Bearer <jwt_token>
-func (productController *ProductController) GetMyProducts(c echo.Context) error {
-	// Get authenticated user ID from JWT token
-	userIdInterface := c.Get("user_id")
-	userId, ok := userIdInterface.(int64)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, response.ErrorResponse{
-			ErrorDescription: "Invalid user authentication",
-		})
-	}
-
-	products := productController.productService.GetAllProductsByUser(userId)
-	return c.JSON(http.StatusOK, response.ToResponseList(products))
-}

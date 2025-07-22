@@ -19,13 +19,7 @@ func (fakeRepository *FakeProductRepository) DeleteAllProducts() error {
 
 // GetAllProductsByUser implements persistence.IProductRepository.
 func (fakeRepository *FakeProductRepository) GetAllProductsByUser(userId int64) []domain.Product {
-	var productsByUser []domain.Product
-	for _, product := range fakeRepository.products {
-		if product.UserID == userId {
-			productsByUser = append(productsByUser, product)
-		}
-	}
-	return productsByUser
+	return fakeRepository.products
 }
 
 func NewFakeProductRepository(initialProducts []domain.Product) persistence.IProductRepository {
@@ -57,7 +51,6 @@ func (fakeRepository *FakeProductRepository) AddProduct(product domain.Product) 
 		Store:       product.Store,
 		ImageUrls:   product.ImageUrls,
 		CategoryID:  product.CategoryID,
-		UserID:      product.UserID,
 	})
 	return nil
 }

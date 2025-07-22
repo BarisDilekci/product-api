@@ -13,6 +13,7 @@ type ProductResponse struct {
 	Discount    float32  `json:"discount"`
 	Store       string   `json:"store"`
 	ImageUrls   []string `json:"image_urls"`
+	CategoryID  int64    `json:"category_id"`
 }
 
 func ToResponse(product domain.Product) ProductResponse {
@@ -23,6 +24,7 @@ func ToResponse(product domain.Product) ProductResponse {
 		Discount:    product.Discount,
 		Store:       product.Store,
 		ImageUrls:   product.ImageUrls,
+		CategoryID:  product.CategoryID,
 	}
 }
 func ToResponseList(products []domain.Product) []ProductResponse {
