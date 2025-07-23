@@ -9,6 +9,7 @@ import (
 )
 
 type IProductService interface {
+	GetProductsByCategoryId(categoryId int64) ([]domain.Product, error)
 	Add(productCreate model.ProductCreate) error
 	DeleteById(productId int64) error
 	GetById(productId int64) (domain.Product, error)
@@ -62,6 +63,13 @@ func (productService *ProductService) GetAllProductsByStore(storeName string) []
 
 func (productService *ProductService) DeleteAllProducts() error {
 	return productService.productRepository.DeleteAllProducts()
+}
+
+func (productService *ProductService) GetProductsByCategoryId(categoryId int64) ([]domain.Product, error) {
+	if categoryId <= 0 {
+		return nil, errors.New("category ID must be a positive integer")
+	}
+	return productService.productRepository.GetProductsByCategoryId(categoryId)
 }
 
 func validateProductCreate(productCreate model.ProductCreate) error {

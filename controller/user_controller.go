@@ -34,7 +34,7 @@ func (userController *UserController) RegisterRoutes(e *echo.Echo) {
 	// Public routes (no authentication required)
 	e.POST("/api/v1/auth/register", userController.Register)
 	e.POST("/api/v1/auth/login", userController.Login)
-	
+
 	// Protected routes (authentication required)
 	protected := e.Group("/api/v1/users", middleware.JWTMiddleware())
 	protected.GET("/:id", userController.GetUserById)

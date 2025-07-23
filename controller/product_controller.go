@@ -44,6 +44,7 @@ func NewProductController(productService service.IProductService) *ProductContro
 //   - e: Echo instance for route registration
 func (productController *ProductController) RegisterRoutes(e *echo.Echo) {
 	// Public routes (no authentication required)
+	e.GET("/api/v1/categories/:id/products", productController.GetProductsByCategoryId)
 	e.GET("/api/v1/products/:id", productController.GetProductById)
 	e.GET("/api/v1/products", productController.GetAllProducts)
 	e.POST("/api/v1/products", productController.AddProduct)
@@ -55,18 +56,25 @@ func (productController *ProductController) RegisterRoutes(e *echo.Echo) {
 	protected.DELETE("/deleteAll", productController.DeleteAllProducts)
 }
 
-// GetProductById retrieves a single product by its ID
-// This is a public endpoint - no authentication required
-//
-// URL Parameters:
-//   - id: Product ID (integer, must be positive)
-//
-// Returns:
-//   - 200 OK: Product data with all fields including images
-//   - 400 Bad Request: Invalid or missing ID parameter
-//   - 404 Not Found: Product with given ID doesn't exist
-//
-// Example: GET /api/v1/products/123
+func (productController *ProductController) GetProductsByCategoryId(c echo.Context) error {
+	param := c.Param("id")
+	categoryId, err := strconv.Atoi(param)
+
+	if err != nil || categoryId <= 0 {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse{
+			ErrorDescription: "Error: " + err.Error(),
+		})
+	}
+
+	products, err := productController.productService.GetProductsByCategoryId(int64(categoryId))
+	if err != nil {
+		return c.JSON(http.StatusNotFound, response.ErrorResponse{
+			ErrorDescription: "Error: " + err.Error(),
+		})
+	}
+	return c.JSON(http.StatusOK, response.ToResponseList(products))
+}
+
 func (productController *ProductController) GetProductById(c echo.Context) error {
 	param := c.Param("id")
 	productId, err := strconv.Atoi(param)
@@ -86,20 +94,6 @@ func (productController *ProductController) GetProductById(c echo.Context) error
 	return c.JSON(http.StatusOK, response.ToResponse(product))
 }
 
-// GetAllProducts retrieves all products with optional filtering by store
-// This is a public endpoint - no authentication required
-//
-// Query Parameters:
-//   - store (optional): Filter products by store name
-//
-// Returns:
-//   - 200 OK: Array of products
-//   - If no store parameter: Returns all products from all stores
-//   - If store parameter provided: Returns only products from that store
-//
-// Examples:
-//   - GET /api/v1/products - Get all products
-//   - GET /api/v1/products?store=TechStore - Get products from TechStore only
 func (productController *ProductController) GetAllProducts(c echo.Context) error {
 	store := c.QueryParam("store")
 
@@ -111,27 +105,6 @@ func (productController *ProductController) GetAllProducts(c echo.Context) error
 	return c.JSON(http.StatusOK, response.ToResponseList(productsWithGivenStore))
 }
 
-// AddProduct creates a new product for the authenticated user
-// This is a protected endpoint - JWT authentication required
-//
-// Request Body (JSON):
-//   - name: Product name (required, alphanumeric + spaces)
-//   - price: Product price (required, must be > 0)
-//   - description: Product description (optional)
-//   - discount: Discount percentage (optional, 0-70)
-//   - store: Store name (required, alphanumeric + spaces)
-//   - image_urls: Array of image URLs (optional)
-//   - category_id: Category ID (required, must exist)
-//
-// Returns:
-//   - 201 Created: Product successfully created (no content)
-//   - 400 Bad Request: Invalid request body format
-//   - 401 Unauthorized: Missing or invalid JWT token
-//   - 422 Unprocessable Entity: Validation errors (price, discount, name, etc.)
-//
-// Example: POST /api/v1/products
-// Authorization: Bearer <jwt_token>
-// Body: {"name":"iPhone","price":1000,"store":"TechStore","category_id":1}
 func (productController *ProductController) AddProduct(c echo.Context) error {
 	var addProductRequest request.AddProductRequest
 	bindErr := c.Bind(&addProductRequest)
@@ -149,24 +122,6 @@ func (productController *ProductController) AddProduct(c echo.Context) error {
 	}
 	return c.NoContent(http.StatusCreated)
 }
-
-// UpdatePrice updates the price of an existing product
-// This is a protected endpoint - JWT authentication required
-//
-// URL Parameters:
-//   - id: Product ID (integer, must exist)
-//
-// Query Parameters:
-//   - newPrice: New price value (required, must be valid float > 0)
-//
-// Returns:
-//   - 200 OK: Price successfully updated (no content)
-//   - 400 Bad Request: Missing newPrice parameter or invalid price format
-//   - 401 Unauthorized: Missing or invalid JWT token
-//   - 404 Not Found: Product with given ID doesn't exist
-//
-// Example: PUT /api/v1/products/123?newPrice=1500.50
-// Authorization: Bearer <jwt_token>
 func (productController *ProductController) UpdatePrice(c echo.Context) error {
 	param := c.Param("id")
 	productId, _ := strconv.Atoi(param)
@@ -187,21 +142,6 @@ func (productController *ProductController) UpdatePrice(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-// DeleteProductById deletes a specific product by its ID
-// This is a protected endpoint - JWT authentication required
-// Note: Users can only delete their own products (enforced at service level)
-//
-// URL Parameters:
-//   - id: Product ID (integer, must exist)
-//
-// Returns:
-//   - 200 OK: Product successfully deleted (no content)
-//   - 401 Unauthorized: Missing or invalid JWT token
-//   - 404 Not Found: Product with given ID doesn't exist
-//   - 403 Forbidden: User doesn't have permission to delete this product
-//
-// Example: DELETE /api/v1/products/123
-// Authorization: Bearer <jwt_token>
 func (productController *ProductController) DeleteProductById(c echo.Context) error {
 	param := c.Param("id")
 	productId, _ := strconv.Atoi(param)
@@ -214,18 +154,6 @@ func (productController *ProductController) DeleteProductById(c echo.Context) er
 	return c.NoContent(http.StatusOK)
 }
 
-// DeleteAllProducts deletes all products from the system
-// This is a protected endpoint - JWT authentication required
-// WARNING: This is a dangerous operation that removes ALL products from ALL users
-// Should be used with extreme caution, typically only by admin users
-//
-// Returns:
-//   - 200 OK: All products successfully deleted (no content)
-//   - 401 Unauthorized: Missing or invalid JWT token
-//   - 404 Not Found: Error occurred during deletion process
-//
-// Example: DELETE /api/v1/products/deleteAll
-// Authorization: Bearer <jwt_token>
 func (productController *ProductController) DeleteAllProducts(c echo.Context) error {
 	err := productController.productService.DeleteAllProducts()
 	if err != nil {
@@ -236,18 +164,3 @@ func (productController *ProductController) DeleteAllProducts(c echo.Context) er
 	}
 	return c.NoContent(http.StatusOK)
 }
-
-// GetMyProducts retrieves all products belonging to the authenticated user
-// This is a protected endpoint - JWT authentication required
-// Only returns products that were created by the current user
-//
-// Returns:
-//   - 200 OK: Array of user's products (may be empty if user has no products)
-//   - 401 Unauthorized: Missing or invalid JWT token
-//
-// Response includes all product fields:
-//   - id, name, price, description, discount, store
-//   - image_urls, category_id, user_id
-//
-// Example: GET /api/v1/products/my-products
-// Authorization: Bearer <jwt_token>
