@@ -1,39 +1,78 @@
-# product-api
+## Product API (Go + Echo)
 
-This project provides a simple product management API built with Go and the Echo framework. It allows users to list products, retrieve product details by ID, add new products, update product prices, and delete products.
+Go ve Echo ile geliştirilmiş; ürün, kategori ve kullanıcı yönetimi sağlayan katmanlı bir REST API.
 
 ---
 
-## Getting Started
+### Table of Contents
 
-### Prerequisites
+- Purpose and Features
+- Architecture and Directory Layout
+- Setup and Run
+- Database Setup (Docker)
+- Environment Variables and Configuration
+- API Endpoints and Sample Requests
+- Validation Rules and Error Format
+- Running Tests
+- Technologies
 
-- **Go:** Installed on your system.  
-  [Go Installation Guide](https://go.dev/dl/)
-- **Git:** Required to clone the repository.  
-  [Git Installation Guide](https://git-scm.com/downloads)
-- **HTTP Client:** Tools like `curl` or `Postman` for testing API endpoints.
+---
 
-### Setup
+### Purpose and Features
 
-1. Clone the repository:
+- Product CRUD: list, get by id, create, update price, delete, delete all
+- Category CRUD: list, get by id, create, update, delete
+- User registration and login, user endpoints protected with JWT
+- Persistent data layer on PostgreSQL (pgxpool)
+- Layered architecture: Controller → Service → Repository → DB
+- Unit and integration tests (with a test database)
 
-    ```bash
-    git clone <repository_github_address>
-    cd <repository_name>
-    ```
+---
 
-2. Install dependencies:
+### Architecture and Directory Layout
 
-    ```bash
-    go mod tidy
-    ```
+High-level flow: HTTP (Echo) → Controller → Service (business rules) → Repository (SQL) → PostgreSQL.
 
-3. **Setup and Run Database with Docker (Required):**
+Key directories:
 
-This project uses a Docker container to run the database for development and testing purposes. Make sure Docker is installed and running on your system.
+- `controller/`: HTTP endpoints (product, category, user)
+- `middleware/`: JWT generation and validation
+- `service/`: business rules and validation
+- `persistence/`: PostgreSQL queries (pgxpool)
+- `domain/`: data models (Product, Category, User)
+- `common/`: app and PostgreSQL configuration
+- `test/`: integration and service tests, database scripts
 
-To start the database container and prepare the environment, run the provided setup script:
+Entry point: `main.go` (starts Echo, wires dependencies, port: `localhost:8080`).
+
+---
+
+### Setup and Run
+
+Prerequisites:
+
+- Go (go.mod: `go 1.24`) – Go 1.21+ recommended
+- Docker (for the database)
+- cURL/Postman (to test endpoints)
+
+Steps:
+
+```bash
+git clone <repo_url>
+cd product-api
+go mod tidy
+
+# Start the database (Docker) – see section below
+
+go run main.go
+# Server: http://localhost:8080
+```
+
+---
+
+### Database Setup (Docker)
+
+By default the app connects to PostgreSQL at `localhost:6432`. To start a dev/test database with Docker:
 
 ```bash
 cd test/scripts
@@ -42,51 +81,214 @@ chmod +x test_db.sh
 cd ../..
 ```
 
-4. Run the application:
+What the script does:
 
-    ```bash
-    go run main.go
-    ```
+- Starts a `postgres-test` container from `postgres:latest` (host port 6432)
+- Creates the `productapp` database
+- Creates `products`, `product_images`, `categories`, `users` tables and sets up relationships
+- Inserts sample categories
+
+Cleanup (optional):
+
+```bash
+docker rm -f postgres-test || true
+```
+
+Note: For integration tests there is a separate script `test/scripts/unit_test_db.sh` that creates a `productapp_unit_test` database.
 
 ---
 
-## API Endpoints
+### Environment Variables and Configuration
+
+- JWT secret: `JWT_SECRET` (optional; if not set, a weak development default is used)
+- Database configuration: hard-coded in `common/app/configuration_manager.go`. Defaults:
+  - Host: `localhost`, Port: `6432`, User: `postgres`, Password: `postgres`, DB: `productapp`
+  - Update this file if you plan to use different DB credentials/ports.
+
+Example run:
+
+```bash
+export JWT_SECRET="your-super-secret-jwt-key-min-32-chars"
+go run main.go
+```
+
+---
+
+### API Endpoints
 
 Base URL: `http://localhost:8080/api/v1`
 
-| Method | Endpoint                  | Description                     | Parameters                                                      | Successful Response                     |
-|--------|---------------------------|---------------------------------|-----------------------------------------------------------------|----------------------------------------|
-| GET    | `/products/:id`            | Get product details by ID       | Path: `id` (int64)                                              | 200 OK - JSON product object           |
-| GET    | `/products`                | List all products                | Query: `store` (optional) - Filter products by store name       | 200 OK - JSON array of products        |
-| POST   | `/products`                | Add a new product               | JSON body: `{ name, price, discount, store, imageUrls }`        | 201 Created - Added product object     |
-| PUT    | `/products/:id`            | Update product price by ID      | JSON body: `{ newPrice }`                                       | 200 OK - Updated product object        |
-| DELETE | `/products/:id`            | Delete product by ID            | Path: `id` (int64)                                              | 204 No Content                         |
-| DELETE | `/products/deleteAll`      | Delete all products             | -                                                               | 204 No Content                         |
+#### Products
+
+- GET `/products`
+  - List all products. Optional `store` query to filter by store: `/products?store=ABC%20TECH`
+- GET `/products/:id`
+  - Get product by id
+- GET `/categories/:id/products`
+  - Get products by category
+- POST `/products`
+  - Create a new product (public)
+- PUT `/products/:id`
+  - Update product price (requires JWT)
+- DELETE `/products/:id`
+  - Delete a product (requires JWT)
+- DELETE `/products/deleteAll`
+  - Delete all products (requires JWT)
+
+Request body (POST /products):
+
+```json
+{
+  "name": "AirFryer",
+  "price": 3000,
+  "description": "AirFryer açıklaması",
+  "discount": 10,
+  "store": "ABC TECH",
+  "image_urls": ["https://example.com/img1.jpg"],
+  "category_id": 1
+}
+```
+
+Response (GET /products/:id):
+
+```json
+{
+  "name": "AirFryer",
+  "price": 3000,
+  "description": "AirFryer açıklaması",
+  "discount": 10,
+  "store": "ABC TECH",
+  "image_urls": ["https://example.com/img1.jpg"],
+  "category_id": 1
+}
+```
+
+Note: The Product GET response intentionally omits the `id` field due to the current response mapping.
+
+#### Categories
+
+- GET `/categories`
+- GET `/categories/:id`
+- POST `/categories`
+- PUT `/categories/:id`
+- DELETE `/categories/:id`
+
+Request body (POST/PUT):
+
+```json
+{
+  "name": "Electronics",
+  "description": "Electronic devices and gadgets"
+}
+```
+
+#### Authentication and Users
+
+- POST `/auth/register`
+  - User registration
+- POST `/auth/login`
+  - Login and obtain a JWT token
+- GET `/users/:id` (requires JWT)
+- PUT `/users/:id` (requires JWT)
+- DELETE `/users/:id` (requires JWT)
+
+Login response example:
+
+```json
+{
+  "message": "Login successful",
+  "token": "<JWT>",
+  "user": {
+    "id": 1,
+    "username": "johndoe",
+    "email": "john@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "created_at": "2024-01-01T10:00:00Z",
+    "updated_at": "2024-01-01T10:00:00Z"
+  }
+}
+```
+
+JWT usage example (protected endpoints):
+
+```bash
+curl -H "Authorization: Bearer <JWT>" http://localhost:8080/api/v1/users/1
+```
 
 ---
 
-## Usage Examples
+### Validation Rules
 
+#### Product
+
+- `name`: required, alphanumeric plus spaces
+- `price`: must be > 0
+- `store`: required, alphanumeric plus spaces
+- `discount`: must be between 0 and 70
+
+#### Category
+
+- `name`: required
+- `description`: required
+
+#### User
+
+- Registration: `username` (min 3), `email` (valid format), `password` (min 6), `first_name`, `last_name`
+- Login: `username_or_email` and `password` are required
+- Passwords are hashed with Argon2 and compared in constant time
+
+---
+
+### Error Format
+
+- Product endpoints: `{ "errorDescription": "..." }`
+- Category and user endpoints: `{ "error": "..." }`
+
+HTTP status codes are returned according to the scenario (400/401/404/422/500 etc.).
+
+---
+
+### Running Tests
+
+Initialize the test database for integration tests:
 
 ```bash
-{
-  "id": 1,
-  "name": "Sample Product",
-  "price": 99.99,
-  "discount": 10,
-  "store": "Store A",
-  "imageUrls": ["https://example.com/image1.jpg"]
-}
-
+cd test/scripts
+chmod +x unit_test_db.sh
+./unit_test_db.sh
+cd ../..
 ```
 
-## Additional Notes
+Then run tests:
 
-- The `price` field is a floating-point number.
-- The `discount` value must be between 0 and 70 percent.
-- The API returns appropriate HTTP status codes and descriptive error messages.
-- Ensure to use the correct HTTP method for each endpoint (GET, POST, PUT, DELETE).
-- The in-memory database is for development and testing only and resets on application restart.
-- For production environments, you should integrate a persistent database (e.g., PostgreSQL, MySQL).
-- The test database setup script (test_db.sh) simulates test scenarios and is not intended for production use.
+```bash
+go test ./...
+```
+
+Notes:
+
+- Integration tests use `localhost:6432` and the `productapp_unit_test` database
+- Tests truncate and re-seed table data
+
+---
+
+### Technologies
+
+- Go, Echo (`github.com/labstack/echo/v4`)
+- PostgreSQL, pgx/pgxpool
+- JWT (`github.com/golang-jwt/jwt/v5`)
+- Argon2 (password hashing)
+- Testing: `testing`, `github.com/stretchr/testify`
+
+---
+
+### Tips
+
+- Server: `http://localhost:8080`
+- Default DB connection is `localhost:6432` (Docker script maps this port)
+- Provide a strong `JWT_SECRET` via environment variable
+- Change DB settings in: `common/app/configuration_manager.go`
+
+For a detailed authentication flow, see `AUTHENTICATION_GUIDE.md` (Turkish).
 
